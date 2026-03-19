@@ -1,0 +1,6 @@
+services:
+  trabalho:
+    build: .
+    ports:
+      - "8082:80"
+    container_name: site-trabalho
