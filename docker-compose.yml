@@ -4,3 +4,5 @@ services:
     ports:
       - "8082:80"
     container_name: site-trabalho
+    volumes:
+      - .:/usr/share/nginx/html

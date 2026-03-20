@@ -292,13 +292,28 @@ button {
     position: fixed;
     right: 20px;
     bottom: 20px;
-    width: 260px;
+    width: 300px; /* Aumentei um pouco a largura para caber melhor os campos */
+    max-height: 85vh; /* O carrinho ocupará no máximo 85% da altura da tela */
     background: #fff;
     border: 2px solid #ffb56b;
     border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     padding: 15px;
-    z-index: 999;
+    z-index: 1000;
+    
+    /* Ativa o scroll interno */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto; 
+}
+
+/* Deixa a barra de rolagem mais fina e elegante (estilo Webkit) */
+.carrinho::-webkit-scrollbar {
+    width: 6px;
+}
+.carrinho::-webkit-scrollbar-thumb {
+    background-color: #ffb56b;
+    border-radius: 10px;
 }
 
 .carrinho h3 {
@@ -307,9 +322,22 @@ button {
 }
 
 .itens-carrinho {
-    max-height: 200px;
+    /* Em vez de uma altura fixa, usamos flex-shrink para ele se ajustar */
+    max-height: 250px; 
     overflow-y: auto;
     padding: 10px 5px;
+    margin-bottom: 10px;
+    border-bottom: 1px hide #eee; /* Linha sutil para separar dos campos de pagamento */
+}
+
+/* Estilizando a barra de rolagem da lista de itens para ficar igual à do carrinho */
+.itens-carrinho::-webkit-scrollbar {
+    width: 4px;
+}
+
+.itens-carrinho::-webkit-scrollbar-thumb {
+    background-color: #ffebd4;
+    border-radius: 10px;
 }
 
 .btn-finalizar {
