@@ -53,10 +53,16 @@ function pulseCarrinho() {
     }, 300);
 }
 
+// 1. Atualize a função atualizarCarrinho para mostrar/esconder o pagamento
 function atualizarCarrinho() {
     carrinhoContainer.innerHTML = '';
+    const secaoPagamento = document.getElementById('secao-pagamento');
+
     if (carrinho.length === 0) {
         carrinhoContainer.innerHTML = '<p>O carrinho está vazio.</p>';
+        secaoPagamento.style.display = 'none'; // Esconde se vazio
+    } else {
+        secaoPagamento.style.display = 'block'; // Mostra se tiver item
     }
 
     let total = 0;
@@ -79,15 +85,45 @@ function atualizarCarrinho() {
         carrinhoContainer.appendChild(totalDiv);
     }
 
+    // Reatribui os eventos de remover
     document.querySelectorAll('.btn-remover').forEach(btn => {
         btn.onclick = (e) => {
             const index = e.target.dataset.index;
             carrinho.splice(index, 1);
             atualizarCarrinho();
-            showToast('Item removido.');
         };
     });
 }
+
+// 2. Atualize o evento do botão Finalizar
+botaoFinalizar.addEventListener('click', (e) => {
+    e.stopPropagation(); // Evita que o carrinho feche ao clicar no botão
+    
+    if (carrinho.length === 0) return showToast('Carrinho vazio!');
+
+    // Validação da Conta (sua lógica anterior)
+    if (!usuarioLogado) {
+        showToast("Acesse sua conta para comprar.");
+        abrirModalAuth();
+        return;
+    }
+
+    // Validação do Pagamento
+    const metodo = document.getElementById('metodo-pagamento').value;
+    if (!metodo) {
+        alert("Por favor, selecione uma forma de pagamento antes de finalizar!");
+        return;
+    }
+
+    let total = carrinho.reduce((acc, item) => acc + item.preco, 0);
+    alert(`🎉 Sucesso!\nPagamento via ${metodo} confirmado.\nTotal: R$ ${formatPrice(total)}`);
+    
+    // Limpa o carrinho
+    carrinho = [];
+    document.getElementById('metodo-pagamento').value = ""; // Reseta o select
+    atualizarCarrinho();
+    carrinhoDiv.classList.remove('ativo');
+});
 
 function adicionarAoCarrinho(nome, preco) {
     carrinho.push({ nome, preco });
