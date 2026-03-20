@@ -459,3 +459,35 @@ button {
 .mapa-container iframe {
     display: block;
 }
+
+.input-group {
+    text-align: left;
+    margin-bottom: 15px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ffb56b;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.auth-alternar {
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+.auth-alternar a {
+    color: #ff7a00;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.btn-cancelar-auth {
+    background: transparent;
+    color: #666;
+    font-size: 0.8rem;
+    margin-top: 10px;
+    text-decoration: underline;
+}
