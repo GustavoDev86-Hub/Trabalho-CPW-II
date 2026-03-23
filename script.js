@@ -1,11 +1,6 @@
-// Elementos do DOM existentes
-const botoesComprar = document.querySelectorAll('.btn-comprar');
-const botoesContratar = document.querySelectorAll('.btn-contratar');
 const carrinhoContainer = document.querySelector('.itens-carrinho');
 const botaoFinalizar = document.querySelector('.btn-finalizar');
 const carrinhoDiv = document.getElementById('carrinho');
-
-// Novos elementos de Autenticação
 const modalAuth = document.getElementById('modal-auth');
 const btnLoginTrigger = document.getElementById('btn-login-trigger');
 const formAuth = document.getElementById('form-auth');
@@ -13,52 +8,61 @@ const linkAlternar = document.getElementById('link-alternar-auth');
 const userGreeting = document.getElementById('user-greeting');
 const btnFecharAuth = document.querySelector('.btn-cancelar-auth');
 
-// Variáveis de Estado
 let usuarioLogado = false;
-let modoLogin = true; // true = login, false = cadastro
+let modoLogin = true; 
 let carrinho = [];
-let usuariosCadastrados = []; // "Banco de dados" local
+let usuariosCadastrados = []; 
 
-// --- FUNÇÕES DE INTERFACE (TOAST, FORMATAÇÃO) ---
-
-function setupToast() {
-    let existingToast = document.querySelector('.toast');
-    if (!existingToast) {
-        const toast = document.createElement('div');
+// --- UTILITÁRIOS ---
+function showToast(message) {
+    let toast = document.querySelector('.toast') || document.createElement('div');
+    if (!toast.classList.contains('toast')) {
         toast.classList.add('toast');
         document.body.appendChild(toast);
-        return toast;
     }
-    return existingToast;
-}
-
-function showToast(message) {
-    const toast = setupToast();
     toast.textContent = message;
     toast.classList.add('show');
-    pulseCarrinho();
+    carrinhoDiv.classList.add('pulse');
     setTimeout(() => {
         toast.classList.remove('show');
+        carrinhoDiv.classList.remove('pulse');
     }, 2000);
 }
 
-function formatPrice(price) {
-    return price.toFixed(2).replace('.', ',');
+const formatPrice = (price) => price.toFixed(2).replace('.', ',');
+
+// --- VALIDAÇÕES ---
+function validarCPF(cpf) {
+    cpf = cpf.replace(/[^\d]+/g, '');
+    if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+    let soma = 0, resto;
+    for (let i = 1; i <= 9; i++) soma += parseInt(cpf.substring(i-1, i)) * (11 - i);
+    resto = (soma * 10) % 11;
+    if ((resto === 10) || (resto === 11)) resto = 0;
+    if (resto !== parseInt(cpf.substring(9, 10))) return false;
+    soma = 0;
+    for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i-1, i)) * (12 - i);
+    resto = (soma * 10) % 11;
+    return ((soma * 10) % 11 % 10) === parseInt(cpf.substring(10, 11));
 }
 
-function pulseCarrinho() {
-    carrinhoDiv.classList.add('pulse');
-    setTimeout(() => {
-        carrinhoDiv.classList.remove('pulse');
-    }, 300);
+function validarLuhn(numero) {
+    let nCheck = 0, bEven = false;
+    numero = numero.replace(/\D/g, "");
+    for (let n = numero.length - 1; n >= 0; n--) {
+        let cDigit = numero.charAt(n), nDigit = parseInt(cDigit, 10);
+        if (bEven && (nDigit *= 2) > 9) nDigit -= 9;
+        nCheck += nDigit;
+        bEven = !bEven;
+    }
+    return (nCheck % 10) === 0 && numero.length >= 13;
 }
 
 // --- LÓGICA DO CARRINHO ---
-
 function atualizarCarrinho() {
     carrinhoContainer.innerHTML = '';
     const secaoPagamento = document.getElementById('secao-pagamento');
-
+    
     if (carrinho.length === 0) {
         carrinhoContainer.innerHTML = '<p>O carrinho está vazio.</p>';
         if(secaoPagamento) secaoPagamento.style.display = 'none';
@@ -85,58 +89,56 @@ function atualizarCarrinho() {
         totalDiv.innerHTML = `<hr><strong>Total: R$ ${formatPrice(total)}</strong>`;
         carrinhoContainer.appendChild(totalDiv);
     }
-
-    document.querySelectorAll('.btn-remover').forEach(btn => {
-        btn.onclick = (e) => {
-            const index = e.target.dataset.index;
-            carrinho.splice(index, 1);
-            atualizarCarrinho();
-        };
-    });
 }
 
-function adicionarAoCarrinho(nome, preco) {
-    carrinho.push({ nome, preco });
-    atualizarCarrinho();
-    showToast(`"${nome}" adicionado!`);
-}
-
-// --- LÓGICA DE PAGAMENTO (MOSTRAR/ESCONDER CAMPOS) ---
-
-function alternarCamposPagamento() {
-    const metodo = document.getElementById('metodo-pagamento').value;
-    const divPix = document.getElementById('campos-pix');
-    const divCartao = document.getElementById('campos-cartao');
-
-    if(divPix) divPix.style.display = (metodo === 'Pix') ? 'block' : 'none';
-    if(divCartao) divCartao.style.display = (metodo === 'Cartão') ? 'block' : 'none';
-}
-
-// --- LÓGICA DE AUTENTICAÇÃO ---
-
-function abrirModalAuth() {
-    modalAuth.style.display = 'flex';
-}
-
-function fecharModalAuth() {
-    modalAuth.style.display = 'none';
-}
-
-function validarAcesso(acao) {
-    if (usuarioLogado) {
-        acao();
-    } else {
-        showToast("Acesse sua conta para comprar.");
-        abrirModalAuth();
+// --- ESCUTADOR GLOBAL (RESOLVE O PROBLEMA DE NÃO ADICIONAR) ---
+document.addEventListener('click', (e) => {
+    // 1. Clique em Remover
+    if (e.target.classList.contains('btn-remover')) {
+        carrinho.splice(e.target.dataset.index, 1);
+        atualizarCarrinho();
+        return;
     }
-}
+
+    // 2. Clique em Comprar (Produtos ou Serviços)
+    if (e.target.classList.contains('btn-comprar') || e.target.classList.contains('btn-contratar')) {
+        if (!usuarioLogado) return abrirModalAuth();
+
+        let nome, precoTexto;
+        
+        // Se for produto
+        const cardProduto = e.target.closest('.produto');
+        if (cardProduto) {
+            nome = cardProduto.querySelector('.nome-produto').textContent.trim();
+            precoTexto = cardProduto.querySelector('.preco-produto').textContent;
+        }
+
+        // Se for serviço (ajustado para as classes do seu vídeo/HTML)
+        const cardServico = e.target.closest('.servico-card') || e.target.closest('.servico');
+        if (cardServico) {
+            nome = cardServico.querySelector('h3')?.textContent.trim() || cardServico.querySelector('.servico-nome')?.textContent.trim();
+            precoTexto = cardServico.querySelector('p')?.textContent.trim() || cardServico.querySelector('.servico-preco')?.textContent.trim();
+        }
+
+        if (nome && precoTexto) {
+            const preco = parseFloat(precoTexto.replace('R$', '').replace(/\./g, '').replace(',', '.').trim());
+            carrinho.push({ nome, preco });
+            atualizarCarrinho();
+            showToast(`"${nome}" adicionado!`);
+            carrinhoDiv.classList.add('ativo');
+        }
+    }
+});
+
+// --- AUTENTICAÇÃO ---
+const fecharModalAuth = () => modalAuth.style.display = 'none';
+const abrirModalAuth = () => modalAuth.style.display = 'flex';
 
 linkAlternar.addEventListener('click', (e) => {
     e.preventDefault();
     modoLogin = !modoLogin;
-    document.getElementById('auth-title').textContent = modoLogin ? 'Entrar no Mundo Pet' : 'Criar Nova Conta';
+    document.getElementById('auth-title').textContent = modoLogin ? 'Entrar' : 'Cadastrar';
     document.getElementById('btn-auth-acao').textContent = modoLogin ? 'Entrar' : 'Cadastrar';
-    document.getElementById('auth-text').textContent = modoLogin ? 'Não tem uma conta?' : 'Já possui conta?';
     linkAlternar.textContent = modoLogin ? 'Criar Conta' : 'Fazer Login';
 });
 
@@ -145,91 +147,58 @@ formAuth.addEventListener('submit', (e) => {
     const email = document.getElementById('auth-email').value.trim();
     const senha = document.getElementById('auth-senha').value.trim();
 
-    if (email === "" || senha === "") {
-        alert("Preencha todos os campos!");
-        return;
-    }
-
     if (!modoLogin) {
         usuariosCadastrados.push({ email, senha });
-        alert("Conta criada com sucesso! Agora faça login.");
-        linkAlternar.click(); 
+        alert("Conta criada! Faça login.");
+        formAuth.reset();
+        linkAlternar.click();
     } else {
-        const usuarioExiste = usuariosCadastrados.find(u => u.email === email && u.senha === senha);
-        if (usuarioExiste) {
+        const user = usuariosCadastrados.find(u => u.email === email && u.senha === senha);
+        if (user) {
             usuarioLogado = true;
-            userGreeting.textContent = `Olá, ${email.split('@')[0]}!`;
+            userGreeting.textContent = email.split('@')[0];
             btnLoginTrigger.style.display = 'none';
             fecharModalAuth();
-            showToast("Bem-vindo de volta!");
+            showToast("Bem-vindo!");
         } else {
-            alert("Erro: E-mail ou senha incorretos!");
+            alert("E-mail ou senha incorretos!");
         }
+    }
+});
+
+// --- FINALIZAÇÃO ---
+botaoFinalizar.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (carrinho.length === 0) return showToast('Carrinho vazio!');
+    const metodo = document.getElementById('metodo-pagamento').value;
+    if (!metodo) return alert("Selecione o pagamento!");
+
+    if (metodo === 'Pix') {
+        const cpf = document.getElementById('pix-cpf').value;
+        if (!validarCPF(cpf)) return alert("CPF Inválido!");
+    } else if (metodo === 'Cartão') {
+        const num = document.getElementById('cartao-numero').value;
+        if (!validarLuhn(num)) return alert("Cartão inválido!");
+    }
+
+    alert("🎉 Pagamento confirmado!");
+    carrinho = [];
+    atualizarCarrinho();
+    carrinhoDiv.classList.remove('ativo');
+});
+
+function alternarCamposPagamento() {
+    const m = document.getElementById('metodo-pagamento').value;
+    document.getElementById('campos-pix').style.display = (m === 'Pix') ? 'block' : 'none';
+    document.getElementById('campos-cartao').style.display = (m === 'Cartão') ? 'block' : 'none';
+}
+
+carrinhoDiv.addEventListener('click', (e) => {
+    if (!e.target.closest('input, select, label, .btn-remover, button')) {
+        carrinhoDiv.classList.toggle('ativo');
     }
 });
 
 btnLoginTrigger.addEventListener('click', abrirModalAuth);
 btnFecharAuth.addEventListener('click', fecharModalAuth);
-
-// --- EVENTOS DE COMPRA E FINALIZAÇÃO ---
-
-botoesComprar.forEach(botao => {
-    botao.addEventListener('click', (e) => {
-        validarAcesso(() => {
-            const produto = e.target.closest('.produto');
-            const nome = produto.querySelector('.nome-produto').textContent.trim();
-            let precoTexto = produto.querySelector('.preco-produto').textContent;
-            const preco = parseFloat(precoTexto.replace('R$', '').trim().replace(',', '.'));
-            adicionarAoCarrinho(nome, preco);
-            if (!carrinhoDiv.classList.contains('ativo')) carrinhoDiv.classList.add('ativo');
-        });
-    });
-});
-
-botaoFinalizar.addEventListener('click', (e) => {
-    e.stopPropagation();
-    
-    if (carrinho.length === 0) return showToast('Carrinho vazio!');
-    if (!usuarioLogado) return abrirModalAuth();
-
-    const metodo = document.getElementById('metodo-pagamento').value;
-    if (metodo === "") return alert("Selecione uma forma de pagamento!");
-
-    // VALIDAÇÃO GIGANTESCA DE DADOS
-    if (metodo === 'Pix') {
-        const cpf = document.getElementById('pix-cpf').value.trim();
-        if (cpf.length < 11) return alert("CPF inválido para o Pix!");
-    } else if (metodo === 'Cartão') {
-        const num = document.getElementById('cartao-numero').value.trim();
-        const cvv = document.getElementById('cartao-cvv').value.trim();
-        if (num.length < 13 || cvv.length < 3) return alert("Dados do cartão incompletos!");
-    }
-
-    let total = carrinho.reduce((acc, item) => acc + item.preco, 0);
-    alert(`🎉 Sucesso!\nPagamento via ${metodo} confirmado.\nTotal: R$ ${formatPrice(total)}`);
-    
-    carrinho = [];
-    document.getElementById('metodo-pagamento').value = "";
-    atualizarCarrinho();
-    carrinhoDiv.classList.remove('ativo');
-});
-
-// Outros eventos atualizados
-carrinhoDiv.addEventListener('click', (event) => {
-    // Se o clique for em um input, select ou label, não faz nada (não fecha o carrinho)
-    if (event.target.closest('input') || 
-        event.target.closest('select') || 
-        event.target.closest('label') || 
-        event.target.closest('.btn-remover')) {
-        return;
-    }
-    
-    // Abre/Fecha apenas se clicar no título ou na área vazia (não em botões)
-    if (!event.target.closest('button')) {
-        carrinhoDiv.classList.toggle('ativo');
-    }
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-    atualizarCarrinho();
-});
+document.addEventListener('DOMContentLoaded', atualizarCarrinho);
